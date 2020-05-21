@@ -1,0 +1,13 @@
+{
+	"ConnectionStrings": {
+		"BlazorInvoiceDatabase": "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=blazor_invoice;Integrated Security=True"
+	},
+	"Logging": {
+		"LogLevel": {
+			"Default": "Information",
+			"Microsoft": "Warning",
+			"Microsoft.Hosting.Lifetime": "Information"
+		}
+	},
+	"AllowedHosts": "*"
+}
