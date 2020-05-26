@@ -1,0 +1,4 @@
+cd BlazorInvoice.Infrastructure
+
+dotnet ef --startup-project ../BlazorInvoice.Client migrations add ExampleMigration
+dotnet ef --startup-project ../BlazorInvoice.Client database update

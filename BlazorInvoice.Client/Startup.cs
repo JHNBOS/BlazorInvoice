@@ -12,6 +12,9 @@ using Microsoft.Extensions.Hosting;
 using BlazorInvoice.Data;
 using BlazorInvoice.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using PreRenderComponent;
+using BlazorInvoice.Infrastructure.Entities;
+using Microsoft.AspNetCore.Identity;
 
 namespace BlazorInvoice.Client
 {
@@ -36,14 +39,54 @@ namespace BlazorInvoice.Client
 			services.AddDbContext<ApplicationDbContext>(options =>
 				options.UseSqlServer(Configuration.GetConnectionString("BlazorInvoiceDatabase"),
 				   b => b.MigrationsAssembly("BlazorInvoice.Infrastructure"))
+				.UseLazyLoadingProxies()
 			);
+
+			services.AddIdentity<IdentityUser, IdentityRole>()
+					.AddRoles<IdentityRole>()
+					.AddEntityFrameworkStores<ApplicationDbContext>();
+
+			services.AddHttpContextAccessor();
+			services.AddScoped<IPreRenderFlag, PreRenderFlag>();
 			services.AddRazorPages();
 			services.AddServerSideBlazor();
 			services.AddSingleton<WeatherForecastService>();
+
+			services.Configure<IdentityOptions>(options =>
+			{
+				// Password settings.
+				options.Password.RequireDigit = false;
+				options.Password.RequireLowercase = true;
+				options.Password.RequireNonAlphanumeric = false;
+				options.Password.RequireUppercase = false;
+				options.Password.RequiredLength = 0;
+				options.Password.RequiredUniqueChars = 0;
+
+				// Lockout settings.
+				options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+				options.Lockout.MaxFailedAccessAttempts = 5;
+				options.Lockout.AllowedForNewUsers = true;
+
+				// User settings.
+				options.User.AllowedUserNameCharacters =
+				"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+				options.User.RequireUniqueEmail = true;
+			});
+
+			services.ConfigureApplicationCookie(options =>
+			{
+				// Cookie settings
+				options.Cookie.HttpOnly = true;
+				options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+
+				options.LoginPath = "/Account/Login";
+				options.AccessDeniedPath = "/Account/AccessDenied";
+				options.SlidingExpiration = true;
+			});
 		}
 
 		// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-		public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+		public void Configure(IApplicationBuilder app, IWebHostEnvironment env, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager)
 		{
 			if (env.IsDevelopment())
 			{
@@ -60,6 +103,9 @@ namespace BlazorInvoice.Client
 			app.UseStaticFiles();
 
 			app.UseRouting();
+
+			app.UseAuthentication();
+			app.UseAuthorization();
 
 			app.UseEndpoints(endpoints =>
 			{
