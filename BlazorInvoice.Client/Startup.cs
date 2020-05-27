@@ -1,20 +1,23 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using BlazorInvoice.Data;
+using BlazorInvoice.Infrastructure;
+using BlazorInvoice.Infrastructure.Entities;
+
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using BlazorInvoice.Data;
-using BlazorInvoice.Infrastructure;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+
 using PreRenderComponent;
-using BlazorInvoice.Infrastructure.Entities;
-using Microsoft.AspNetCore.Identity;
+
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
 namespace BlazorInvoice.Client
 {
@@ -42,9 +45,9 @@ namespace BlazorInvoice.Client
 				.UseLazyLoadingProxies()
 			);
 
-			services.AddIdentity<IdentityUser, IdentityRole>()
-					.AddRoles<IdentityRole>()
-					.AddEntityFrameworkStores<ApplicationDbContext>();
+			services.AddIdentity<ApplicationUser, ApplicationRole>()
+					.AddEntityFrameworkStores<ApplicationDbContext>()
+					.AddDefaultTokenProviders();
 
 			services.AddHttpContextAccessor();
 			services.AddScoped<IPreRenderFlag, PreRenderFlag>();
@@ -54,23 +57,18 @@ namespace BlazorInvoice.Client
 
 			services.Configure<IdentityOptions>(options =>
 			{
-				// Password settings.
-				options.Password.RequireDigit = false;
-				options.Password.RequireLowercase = true;
-				options.Password.RequireNonAlphanumeric = false;
-				options.Password.RequireUppercase = false;
-				options.Password.RequiredLength = 0;
-				options.Password.RequiredUniqueChars = 0;
-
 				// Lockout settings.
 				options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
 				options.Lockout.MaxFailedAccessAttempts = 5;
-				options.Lockout.AllowedForNewUsers = true;
+				options.Lockout.AllowedForNewUsers = false;
+			});
 
-				// User settings.
-				options.User.AllowedUserNameCharacters =
-				"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
-				options.User.RequireUniqueEmail = true;
+			services.AddServerSideBlazor().AddCircuitOptions(options =>
+			{
+				options.DetailedErrors = true;
+			}).AddHubOptions(o =>
+			{
+				o.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10MB
 			});
 
 			services.ConfigureApplicationCookie(options =>
@@ -86,11 +84,12 @@ namespace BlazorInvoice.Client
 		}
 
 		// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-		public void Configure(IApplicationBuilder app, IWebHostEnvironment env, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager)
+		public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
 		{
 			if (env.IsDevelopment())
 			{
 				app.UseDeveloperExceptionPage();
+				app.Seed(logger);
 			}
 			else
 			{
@@ -98,6 +97,35 @@ namespace BlazorInvoice.Client
 				// The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
 				app.UseHsts();
 			}
+
+			app.UseExceptionHandler(errorApp =>
+			{
+				errorApp.Run(async context =>
+				{
+					context.Response.StatusCode = 500;
+					context.Response.ContentType = "text/html";
+
+					await context.Response.WriteAsync("<html lang=\"en\"><body>\r\n");
+					await context.Response.WriteAsync("ERROR!<br><br>\r\n");
+
+					var exceptionHandlerPathFeature =
+						context.Features.Get<IExceptionHandlerPathFeature>();
+
+					await context.Response.WriteAsync(exceptionHandlerPathFeature.Error.Message + "<br/><br/>");
+					await context.Response.WriteAsync(exceptionHandlerPathFeature.Error.StackTrace);
+
+					logger.LogError("Error" + exceptionHandlerPathFeature.Error.Message);
+
+					if (exceptionHandlerPathFeature?.Error is FileNotFoundException)
+					{
+						await context.Response.WriteAsync("File error thrown!<br><br>\r\n");
+					}
+
+					await context.Response.WriteAsync("<a href=\"/\">Home</a><br>\r\n");
+					await context.Response.WriteAsync("</body></html>\r\n");
+					await context.Response.WriteAsync(new string(' ', 512)); // IE padding
+				});
+			});
 
 			app.UseHttpsRedirection();
 			app.UseStaticFiles();
@@ -109,9 +137,88 @@ namespace BlazorInvoice.Client
 
 			app.UseEndpoints(endpoints =>
 			{
+				endpoints.MapControllers();
 				endpoints.MapBlazorHub();
 				endpoints.MapFallbackToPage("/_Host");
 			});
+
+			logger.LogInformation("Done configuring application...");
+		}
+	}
+
+	public static class DatabaseSeeder
+	{
+		public static void Seed(this IApplicationBuilder app, ILogger logger)
+		{
+			logger.LogInformation("Updating database...");
+			using var serviceScope = app.ApplicationServices.CreateScope();
+
+			var context = serviceScope.ServiceProvider.GetService<ApplicationDbContext>();
+			var userManager = serviceScope.ServiceProvider.GetService<UserManager<ApplicationUser>>();
+			var roleManager = serviceScope.ServiceProvider.GetService<RoleManager<IdentityRole>>();
+
+			SeedRoles(context, roleManager, logger).GetAwaiter();
+			SeedUsers(context, userManager, logger).GetAwaiter();
+
+			logger.LogInformation("Done updating database...");
+		}
+
+		public static async Task SeedUsers(ApplicationDbContext context, UserManager<ApplicationUser> userManager, ILogger logger)
+		{
+			if (userManager.FindByEmailAsync("bosbosjohan@gmail.com").Result == null)
+			{
+				ApplicationUser user = new ApplicationUser()
+				{
+					Email = "bosbosjohan@gmail.com",
+					UserName = "Admin",
+					NormalizedEmail = ("bosbosjohan@gmail.com").ToUpper(),
+					NormalizedUserName = ("Admin").ToUpper(),
+					FirstName = "Johan",
+					LastName = "Bos",
+					EmailConfirmed = true,
+					LockoutEnabled = false
+				};
+
+				user.PasswordHash = GenerateHash(user);
+
+				IdentityResult result = await userManager.CreateAsync(user, "welkom2020");
+				context.SaveChanges();
+
+				if (result.Succeeded)
+				{
+					await userManager.AddToRoleAsync(user, "Administrator");
+					logger.LogTrace($"Set password welkom2020 for default user bosbosjohan@gmail.com successfully");
+				}
+				else
+				{
+					logger.LogError($"Password for the user `{user.Email}` couldn't be set");
+				}
+			}
+		}
+
+		public static async Task SeedRoles(ApplicationDbContext context, RoleManager<IdentityRole> roleManager, ILogger logger)
+		{
+			string[] roles = new string[] { "Debtor", "Administrator", "Employee" };
+
+			foreach (string role in roles)
+			{
+				var result = await roleManager.CreateAsync(new IdentityRole(role));
+				context.SaveChanges();
+				if (result.Succeeded)
+				{
+					logger.LogTrace($"Created role {role} successfully");
+				}
+				else
+				{
+					logger.LogError($"Role {role} couldn't be created!");
+				}
+			}
+		}
+
+		private static string GenerateHash(ApplicationUser user)
+		{
+			var passHash = new PasswordHasher<ApplicationUser>();
+			return passHash.HashPassword(user, "welkom2020");
 		}
 	}
 }

@@ -3,12 +3,11 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System;
 
 namespace BlazorInvoice.Infrastructure
 {
-	public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
-	{
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, int>
+    {
 		public ApplicationDbContext(DbContextOptions options) : base(options)
 		{
 		}
@@ -39,9 +38,53 @@ namespace BlazorInvoice.Infrastructure
 			modelBuilder.Entity<Debtor>().HasOne(e => e.Address).WithMany(e => e.Debtors);
 			modelBuilder.Entity<InvoiceItem>().HasOne(e => e.Invoice).WithMany(e => e.Items);
 
-			#region Identity
+            #region Identity
 
-			modelBuilder.Entity<ApplicationUser>().HasKey(e => e.Email);
+            modelBuilder.Entity<ApplicationUser>(entity =>
+            {
+                entity.ToTable(name: "AspNetUser", schema: "Security");
+                entity.Property(e => e.Id).HasColumnName("AspNetUserId");
+            });
+
+            modelBuilder.Entity<ApplicationRole>(entity =>
+            {
+                entity.ToTable(name: "AspNetRole", schema: "Security");
+                entity.Property(e => e.Id).HasColumnName("AspNetRoleId");
+            });
+
+            modelBuilder.Entity<IdentityUserClaim<int>>(entity =>
+            {
+                entity.ToTable("AspNetUserClaim", "Security");
+                entity.Property(e => e.UserId).HasColumnName("AspNetUserId");
+                entity.Property(e => e.Id).HasColumnName("AspNetUserClaimId");
+            });
+
+            modelBuilder.Entity<IdentityUserLogin<int>>(entity =>
+            {
+                entity.ToTable("AspNetUserLogin", "Security");
+                entity.Property(e => e.UserId).HasColumnName("AspNetUserId");
+            });
+
+            modelBuilder.Entity<IdentityRoleClaim<int>>(entity =>
+            {
+                entity.ToTable("AspNetRoleClaim", "Security");
+                entity.Property(e => e.Id).HasColumnName("AspNetRoleClaimId");
+                entity.Property(e => e.RoleId).HasColumnName("AspNetRoleId");
+            });
+
+            modelBuilder.Entity<IdentityUserRole<int>>(entity =>
+            {
+                entity.ToTable("AspNetUserRole", "Security");
+                entity.Property(e => e.UserId).HasColumnName("AspNetUserId");
+                entity.Property(e => e.RoleId).HasColumnName("AspNetRoleId");
+            });
+
+            modelBuilder.Entity<IdentityUserToken<int>>(entity =>
+            {
+                entity.ToTable("AspNetUserToken", "Security");
+                entity.Property(e => e.UserId).HasColumnName("AspNetUserId");
+            });
+
 
 			#endregion
 		}
