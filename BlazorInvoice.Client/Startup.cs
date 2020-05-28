@@ -1,7 +1,7 @@
 using BlazorInvoice.Data;
 using BlazorInvoice.Infrastructure;
 using BlazorInvoice.Infrastructure.Entities;
-
+using BlazorInvoice.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
@@ -53,7 +53,12 @@ namespace BlazorInvoice.Client
 			services.AddScoped<IPreRenderFlag, PreRenderFlag>();
 			services.AddRazorPages();
 			services.AddServerSideBlazor();
+
 			services.AddSingleton<WeatherForecastService>();
+			services.AddTransient<UserRepository>();
+			services.AddTransient<DebtorRepository>();
+			services.AddTransient<InvoiceRepository>();
+			services.AddTransient<SettingsRepository>();
 
 			services.Configure<IdentityOptions>(options =>
 			{
