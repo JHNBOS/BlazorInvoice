@@ -51,6 +51,7 @@ namespace BlazorInvoice.Client
 
 			services.AddHttpContextAccessor();
 			services.AddScoped<IPreRenderFlag, PreRenderFlag>();
+			services.AddControllersWithViews();
 			services.AddRazorPages();
 			services.AddServerSideBlazor();
 
@@ -66,6 +67,9 @@ namespace BlazorInvoice.Client
 				options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
 				options.Lockout.MaxFailedAccessAttempts = 5;
 				options.Lockout.AllowedForNewUsers = false;
+				options.Password.RequireDigit = false;
+				options.Password.RequireNonAlphanumeric = false;
+				options.Password.RequireUppercase = false;
 			});
 
 			services.AddServerSideBlazor().AddCircuitOptions(options =>
@@ -94,7 +98,6 @@ namespace BlazorInvoice.Client
 			if (env.IsDevelopment())
 			{
 				app.UseDeveloperExceptionPage();
-				app.Seed(logger);
 			}
 			else
 			{
@@ -102,6 +105,8 @@ namespace BlazorInvoice.Client
 				// The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
 				app.UseHsts();
 			}
+
+			app.Seed(logger);
 
 			app.UseExceptionHandler(errorApp =>
 			{
@@ -160,15 +165,15 @@ namespace BlazorInvoice.Client
 
 			var context = serviceScope.ServiceProvider.GetService<ApplicationDbContext>();
 			var userManager = serviceScope.ServiceProvider.GetService<UserManager<ApplicationUser>>();
-			var roleManager = serviceScope.ServiceProvider.GetService<RoleManager<IdentityRole>>();
+			var roleManager = serviceScope.ServiceProvider.GetService<RoleManager<ApplicationRole>>();
 
-			SeedRoles(context, roleManager, logger).GetAwaiter();
-			SeedUsers(context, userManager, logger).GetAwaiter();
+			SeedRoles(context, roleManager, logger);
+			SeedUsers(context, userManager, logger);
 
 			logger.LogInformation("Done updating database...");
 		}
 
-		public static async Task SeedUsers(ApplicationDbContext context, UserManager<ApplicationUser> userManager, ILogger logger)
+		public static void SeedUsers(ApplicationDbContext context, UserManager<ApplicationUser> userManager, ILogger logger)
 		{
 			if (userManager.FindByEmailAsync("bosbosjohan@gmail.com").Result == null)
 			{
@@ -181,17 +186,21 @@ namespace BlazorInvoice.Client
 					FirstName = "Johan",
 					LastName = "Bos",
 					EmailConfirmed = true,
-					LockoutEnabled = false
+					LockoutEnabled = false,
+					AccessFailedCount = 0,
+					PhoneNumber = "XXX",
+					PhoneNumberConfirmed = true,
+					ConcurrencyStamp = new Guid().ToString("D"),
+					SecurityStamp = new Guid().ToString("D") + DateTime.Now.ToString("ddMMYYYYHHss"),
 				};
 
 				user.PasswordHash = GenerateHash(user);
 
-				IdentityResult result = await userManager.CreateAsync(user, "welkom2020");
-				context.SaveChanges();
+				var result = userManager.CreateAsync(user, "welkom2020").Result;
 
 				if (result.Succeeded)
 				{
-					await userManager.AddToRoleAsync(user, "Administrator");
+					userManager.AddToRoleAsync(user, "Administrator");
 					logger.LogTrace($"Set password welkom2020 for default user bosbosjohan@gmail.com successfully");
 				}
 				else
@@ -201,15 +210,16 @@ namespace BlazorInvoice.Client
 			}
 		}
 
-		public static async Task SeedRoles(ApplicationDbContext context, RoleManager<IdentityRole> roleManager, ILogger logger)
+		public static void SeedRoles(ApplicationDbContext context, RoleManager<ApplicationRole> roleManager, ILogger logger)
 		{
 			string[] roles = new string[] { "Debtor", "Administrator", "Employee" };
 
 			foreach (string role in roles)
 			{
-				var result = await roleManager.CreateAsync(new IdentityRole(role));
-				context.SaveChanges();
-				if (result.Succeeded)
+				var appRole = new ApplicationRole(role);
+				var appRoleResult = roleManager.CreateAsync(appRole).Result;
+
+				if (appRoleResult.Succeeded)
 				{
 					logger.LogTrace($"Created role {role} successfully");
 				}
