@@ -16,6 +16,7 @@ namespace BlazorInvoice.Client.Areas.Identity
         public void Configure(IWebHostBuilder builder)
         {
             builder.ConfigureServices((context, services) => {
+                services.AddApiAuthorization();
             });
         }
     }

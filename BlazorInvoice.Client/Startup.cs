@@ -1,8 +1,12 @@
-using BlazorInvoice.Data;
+using BlazorInvoice.Client.Areas.Identity;
+using BlazorInvoice.Client.Data;
 using BlazorInvoice.Infrastructure;
 using BlazorInvoice.Infrastructure.Entities;
 using BlazorInvoice.Infrastructure.Repositories;
+
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -17,7 +21,6 @@ using PreRenderComponent;
 
 using System;
 using System.IO;
-using System.Threading.Tasks;
 
 namespace BlazorInvoice.Client
 {
@@ -45,31 +48,40 @@ namespace BlazorInvoice.Client
 				.UseLazyLoadingProxies()
 			);
 
-			services.AddIdentity<ApplicationUser, ApplicationRole>()
-					.AddEntityFrameworkStores<ApplicationDbContext>()
-					.AddDefaultTokenProviders();
+			services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
+			{
+				options.SignIn.RequireConfirmedAccount = false;
+			})
+				.AddEntityFrameworkStores<ApplicationDbContext>()
+				.AddDefaultTokenProviders();
 
 			services.AddHttpContextAccessor();
-			services.AddScoped<IPreRenderFlag, PreRenderFlag>();
 			services.AddControllersWithViews();
 			services.AddRazorPages();
 			services.AddServerSideBlazor();
 
 			services.AddSingleton<WeatherForecastService>();
+
 			services.AddTransient<UserRepository>();
 			services.AddTransient<DebtorRepository>();
 			services.AddTransient<InvoiceRepository>();
 			services.AddTransient<SettingsRepository>();
 
+			services.AddScoped<IPreRenderFlag, PreRenderFlag>();
+			services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
+			services.AddScoped<IHostEnvironmentAuthenticationStateProvider>(sp => {
+				// this is safe because 
+				//     the `RevalidatingIdentityAuthenticationStateProvider` extends the `ServerAuthenticationStateProvider`
+				var provider = (ServerAuthenticationStateProvider)sp.GetRequiredService<AuthenticationStateProvider>();
+				return provider;
+			});
+
 			services.Configure<IdentityOptions>(options =>
 			{
-				// Lockout settings.
+				// Default Lockout settings.
 				options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
 				options.Lockout.MaxFailedAccessAttempts = 5;
 				options.Lockout.AllowedForNewUsers = false;
-				options.Password.RequireDigit = false;
-				options.Password.RequireNonAlphanumeric = false;
-				options.Password.RequireUppercase = false;
 			});
 
 			services.AddServerSideBlazor().AddCircuitOptions(options =>
@@ -83,7 +95,7 @@ namespace BlazorInvoice.Client
 			services.ConfigureApplicationCookie(options =>
 			{
 				// Cookie settings
-				options.Cookie.HttpOnly = true;
+				options.Cookie.HttpOnly = false;
 				options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
 
 				options.LoginPath = "/Account/Login";
@@ -194,14 +206,15 @@ namespace BlazorInvoice.Client
 					SecurityStamp = new Guid().ToString("D") + DateTime.Now.ToString("ddMMYYYYHHss"),
 				};
 
-				user.PasswordHash = GenerateHash(user);
+				var userResult = userManager.CreateAsync(user, "Welkom@2020").Result;
+				context.SaveChanges();
 
-				var result = userManager.CreateAsync(user, "welkom2020").Result;
-
-				if (result.Succeeded)
+				if (userResult.Succeeded)
 				{
-					userManager.AddToRoleAsync(user, "Administrator");
-					logger.LogTrace($"Set password welkom2020 for default user bosbosjohan@gmail.com successfully");
+					userManager.AddToRoleAsync(user, "Administrator").Wait();
+					context.SaveChanges();
+
+					logger.LogInformation($"Set password 'Welkom@2020' for default user 'bosbosjohan@gmail.com' successfully");
 				}
 				else
 				{
@@ -216,18 +229,23 @@ namespace BlazorInvoice.Client
 
 			foreach (string role in roles)
 			{
-				var appRole = new ApplicationRole(role);
-				var appRoleResult = roleManager.CreateAsync(appRole).Result;
+				if (roleManager.FindByNameAsync(role).Result == null)
+				{
+					var appRole = new ApplicationRole(role);
+					var appRoleResult = roleManager.CreateAsync(appRole).Result;
 
-				if (appRoleResult.Succeeded)
-				{
-					logger.LogTrace($"Created role {role} successfully");
-				}
-				else
-				{
-					logger.LogError($"Role {role} couldn't be created!");
+					if (appRoleResult.Succeeded)
+					{
+						logger.LogTrace($"Created role {role} successfully");
+					}
+					else
+					{
+						logger.LogError($"Role {role} couldn't be created!");
+					}
 				}
 			}
+
+			context.SaveChanges();
 		}
 
 		private static string GenerateHash(ApplicationUser user)
