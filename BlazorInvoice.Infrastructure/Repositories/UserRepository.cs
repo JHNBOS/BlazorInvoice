@@ -1,6 +1,5 @@
 ﻿using BlazorInvoice.Infrastructure.Entities;
 
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 using System.Collections.Generic;
@@ -11,34 +10,31 @@ namespace BlazorInvoice.Infrastructure.Repositories
 	public class UserRepository
 	{
 		private readonly ApplicationDbContext _context;
-		private readonly UserManager<ApplicationUser> _userManager;
 
-		public UserRepository(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+		public UserRepository(ApplicationDbContext context)
 		{
 			_context = context;
-			_userManager = userManager;
 		}
 
-		public async Task<List<ApplicationUser>> GetUsers()
+		public async Task<List<User>> GetUsers()
 		{
 			return await _context.Users.ToListAsync();
 		}
 
-		public async Task<ApplicationUser> GetUser(int id)
+		public async Task<User> GetUser(int id)
 		{
 			return await _context.Users.FirstOrDefaultAsync(q => q.Id == id);
 		}
 
-		public async Task<ApplicationUser> GetUserByEmail(string email)
+		public async Task<User> GetUserByEmail(string email)
 		{
 			return await _context.Users.FirstOrDefaultAsync(q => q.Email == email);
 		}
 
-		public async Task<ApplicationUser> Create(ApplicationUser user)
+		public async Task<User> Create(User user)
 		{
-			var result = await _userManager.CreateAsync(user, user.PasswordHash);
-
-			if (result.Succeeded)
+			var result = await _context.Users.AddAsync(user);
+			if(result.IsKeySet)
 			{
 				return user;
 			}
@@ -46,21 +42,17 @@ namespace BlazorInvoice.Infrastructure.Repositories
 			return null;
 		}
 
-		public async Task<ApplicationUser> Update(ApplicationUser user)
+		public async Task<User> Update(User user)
 		{
-			var result = await _userManager.UpdateAsync(user);
+			_context.Users.Update(user);
+			await _context.SaveChangesAsync();
 
-			if (result.Succeeded)
-			{
-				return user;
-			}
-
-			return null;
+			return user;
 		}
 
-		public async Task<bool> Delete(ApplicationUser user)
+		public async Task<bool> Delete(User user)
 		{
-			await _userManager.DeleteAsync(user);
+			_context.Users.Remove(user);
 			var result = await _context.SaveChangesAsync();
 
 			return result > 0 ? true : false;

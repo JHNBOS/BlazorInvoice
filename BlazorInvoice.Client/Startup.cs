@@ -1,5 +1,9 @@
+using Blazored.LocalStorage;
 using BlazorInvoice.Client.Areas.Identity;
 using BlazorInvoice.Client.Data;
+using BlazorInvoice.Data;
+using BlazorInvoice.Data.Services;
+using BlazorInvoice.Data.Services.Interfaces;
 using BlazorInvoice.Infrastructure;
 using BlazorInvoice.Infrastructure.Entities;
 using BlazorInvoice.Infrastructure.Repositories;
@@ -48,17 +52,29 @@ namespace BlazorInvoice.Client
 				.UseLazyLoadingProxies()
 			);
 
-			services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
-			{
-				options.SignIn.RequireConfirmedAccount = false;
-			})
-				.AddEntityFrameworkStores<ApplicationDbContext>()
-				.AddDefaultTokenProviders();
+			//services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
+			//{
+			//	options.SignIn.RequireConfirmedAccount = false;
+			//})
+			//	.AddEntityFrameworkStores<ApplicationDbContext>()
+			//	.AddDefaultTokenProviders();
 
 			services.AddHttpContextAccessor();
 			services.AddControllersWithViews();
 			services.AddRazorPages();
 			services.AddServerSideBlazor();
+			services.AddBlazoredLocalStorage();
+			services.AddHttpClient();
+
+			services.AddScoped<IPreRenderFlag, PreRenderFlag>();
+			//services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
+			services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
+			services.AddScoped<IHostEnvironmentAuthenticationStateProvider>(sp => {
+				// this is safe because 
+				//     the `RevalidatingIdentityAuthenticationStateProvider` extends the `ServerAuthenticationStateProvider`
+				var provider = (ServerAuthenticationStateProvider)sp.GetRequiredService<AuthenticationStateProvider>();
+				return provider;
+			});
 
 			services.AddSingleton<WeatherForecastService>();
 
@@ -67,22 +83,18 @@ namespace BlazorInvoice.Client
 			services.AddTransient<InvoiceRepository>();
 			services.AddTransient<SettingsRepository>();
 
-			services.AddScoped<IPreRenderFlag, PreRenderFlag>();
-			services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
-			services.AddScoped<IHostEnvironmentAuthenticationStateProvider>(sp => {
-				// this is safe because 
-				//     the `RevalidatingIdentityAuthenticationStateProvider` extends the `ServerAuthenticationStateProvider`
-				var provider = (ServerAuthenticationStateProvider)sp.GetRequiredService<AuthenticationStateProvider>();
-				return provider;
-			});
+			services.AddTransient<UserService>();
+			services.AddTransient<DebtorService>();
+			services.AddTransient<InvoiceService>();
 
-			services.Configure<IdentityOptions>(options =>
-			{
-				// Default Lockout settings.
-				options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-				options.Lockout.MaxFailedAccessAttempts = 5;
-				options.Lockout.AllowedForNewUsers = false;
-			});
+
+			//services.Configure<IdentityOptions>(options =>
+			//{
+			//	// Default Lockout settings.
+			//	options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+			//	options.Lockout.MaxFailedAccessAttempts = 5;
+			//	options.Lockout.AllowedForNewUsers = false;
+			//});
 
 			services.AddServerSideBlazor().AddCircuitOptions(options =>
 			{
@@ -118,7 +130,7 @@ namespace BlazorInvoice.Client
 				app.UseHsts();
 			}
 
-			app.Seed(logger);
+			//app.Seed(logger);
 
 			app.UseExceptionHandler(errorApp =>
 			{
