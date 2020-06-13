@@ -2,7 +2,7 @@
 
 namespace BlazorInvoice.Infrastructure.Migrations
 {
-    public partial class NewSetup : Migration
+    public partial class IdentityUsers2 : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {

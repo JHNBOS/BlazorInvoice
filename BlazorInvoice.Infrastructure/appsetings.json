@@ -1,6 +1,6 @@
 {
 	"ConnectionStrings": {
-		"BlazorInvoiceDatabase": "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=blazor_invoice;Integrated Security=True"
+		"BlazorInvoiceDatabase": "Data Source=(localdb)\\MSSQLLocalDB;Initial Catalog=blazor_invoice;Integrated Security=True;MultipleActiveResultSets=true"
 	},
 	"Logging": {
 		"LogLevel": {

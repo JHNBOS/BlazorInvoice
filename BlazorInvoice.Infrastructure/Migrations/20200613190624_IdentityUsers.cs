@@ -3,13 +3,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace BlazorInvoice.Infrastructure.Migrations
 {
-    public partial class InitDB : Migration
+    public partial class IdentityUsers : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.EnsureSchema(
-                name: "Security");
-
             migrationBuilder.CreateTable(
                 name: "Addresses",
                 columns: table => new
@@ -26,28 +23,24 @@ namespace BlazorInvoice.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AspNetRole",
-                schema: "Security",
+                name: "AspNetRoles",
                 columns: table => new
                 {
-                    AspNetRoleId = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     NormalizedName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetRole", x => x.AspNetRoleId);
+                    table.PrimaryKey("PK_AspNetRoles", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "AspNetUser",
-                schema: "Security",
+                name: "AspNetUsers",
                 columns: table => new
                 {
-                    AspNetUserId = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
@@ -61,13 +54,11 @@ namespace BlazorInvoice.Infrastructure.Migrations
                     TwoFactorEnabled = table.Column<bool>(type: "bit", nullable: false),
                     LockoutEnd = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                     LockoutEnabled = table.Column<bool>(type: "bit", nullable: false),
-                    AccessFailedCount = table.Column<int>(type: "int", nullable: false),
-                    FirstName = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    LastName = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    AccessFailedCount = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetUser", x => x.AspNetUserId);
+                    table.PrimaryKey("PK_AspNetUsers", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -129,119 +120,108 @@ namespace BlazorInvoice.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "AspNetRoleClaim",
-                schema: "Security",
+                name: "AspNetRoleClaims",
                 columns: table => new
                 {
-                    AspNetRoleClaimId = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    AspNetRoleId = table.Column<int>(type: "int", nullable: false),
+                    RoleId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     ClaimType = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ClaimValue = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetRoleClaim", x => x.AspNetRoleClaimId);
+                    table.PrimaryKey("PK_AspNetRoleClaims", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_AspNetRoleClaim_AspNetRole_AspNetRoleId",
-                        column: x => x.AspNetRoleId,
-                        principalSchema: "Security",
-                        principalTable: "AspNetRole",
-                        principalColumn: "AspNetRoleId",
+                        name: "FK_AspNetRoleClaims_AspNetRoles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "AspNetRoles",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "AspNetUserClaim",
-                schema: "Security",
+                name: "AspNetUserClaims",
                 columns: table => new
                 {
-                    AspNetUserClaimId = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    AspNetUserId = table.Column<int>(type: "int", nullable: false),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
                     ClaimType = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ClaimValue = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetUserClaim", x => x.AspNetUserClaimId);
+                    table.PrimaryKey("PK_AspNetUserClaims", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_AspNetUserClaim_AspNetUser_AspNetUserId",
-                        column: x => x.AspNetUserId,
-                        principalSchema: "Security",
-                        principalTable: "AspNetUser",
-                        principalColumn: "AspNetUserId",
+                        name: "FK_AspNetUserClaims_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "AspNetUserLogin",
-                schema: "Security",
+                name: "AspNetUserLogins",
                 columns: table => new
                 {
-                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    ProviderKey = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    LoginProvider = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    ProviderKey = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
                     ProviderDisplayName = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    AspNetUserId = table.Column<int>(type: "int", nullable: false)
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetUserLogin", x => new { x.LoginProvider, x.ProviderKey });
+                    table.PrimaryKey("PK_AspNetUserLogins", x => new { x.LoginProvider, x.ProviderKey });
                     table.ForeignKey(
-                        name: "FK_AspNetUserLogin_AspNetUser_AspNetUserId",
-                        column: x => x.AspNetUserId,
-                        principalSchema: "Security",
-                        principalTable: "AspNetUser",
-                        principalColumn: "AspNetUserId",
+                        name: "FK_AspNetUserLogins_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "AspNetUserRole",
-                schema: "Security",
+                name: "AspNetUserRoles",
                 columns: table => new
                 {
-                    AspNetUserId = table.Column<int>(type: "int", nullable: false),
-                    AspNetRoleId = table.Column<int>(type: "int", nullable: false)
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    RoleId = table.Column<string>(type: "nvarchar(450)", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetUserRole", x => new { x.AspNetUserId, x.AspNetRoleId });
+                    table.PrimaryKey("PK_AspNetUserRoles", x => new { x.UserId, x.RoleId });
                     table.ForeignKey(
-                        name: "FK_AspNetUserRole_AspNetRole_AspNetRoleId",
-                        column: x => x.AspNetRoleId,
-                        principalSchema: "Security",
-                        principalTable: "AspNetRole",
-                        principalColumn: "AspNetRoleId",
+                        name: "FK_AspNetUserRoles_AspNetRoles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "AspNetRoles",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_AspNetUserRole_AspNetUser_AspNetUserId",
-                        column: x => x.AspNetUserId,
-                        principalSchema: "Security",
-                        principalTable: "AspNetUser",
-                        principalColumn: "AspNetUserId",
+                        name: "FK_AspNetUserRoles_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "AspNetUserToken",
-                schema: "Security",
+                name: "AspNetUserTokens",
                 columns: table => new
                 {
-                    AspNetUserId = table.Column<int>(type: "int", nullable: false),
-                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    Name = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    LoginProvider = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
                     Value = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_AspNetUserToken", x => new { x.AspNetUserId, x.LoginProvider, x.Name });
+                    table.PrimaryKey("PK_AspNetUserTokens", x => new { x.UserId, x.LoginProvider, x.Name });
                     table.ForeignKey(
-                        name: "FK_AspNetUserToken_AspNetUser_AspNetUserId",
-                        column: x => x.AspNetUserId,
-                        principalSchema: "Security",
-                        principalTable: "AspNetUser",
-                        principalColumn: "AspNetUserId",
+                        name: "FK_AspNetUserTokens_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
@@ -296,50 +276,43 @@ namespace BlazorInvoice.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_AspNetRoleClaims_RoleId",
+                table: "AspNetRoleClaims",
+                column: "RoleId");
+
+            migrationBuilder.CreateIndex(
                 name: "RoleNameIndex",
-                schema: "Security",
-                table: "AspNetRole",
+                table: "AspNetRoles",
                 column: "NormalizedName",
                 unique: true,
                 filter: "[NormalizedName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AspNetRoleClaim_AspNetRoleId",
-                schema: "Security",
-                table: "AspNetRoleClaim",
-                column: "AspNetRoleId");
+                name: "IX_AspNetUserClaims_UserId",
+                table: "AspNetUserClaims",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AspNetUserLogins_UserId",
+                table: "AspNetUserLogins",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AspNetUserRoles_RoleId",
+                table: "AspNetUserRoles",
+                column: "RoleId");
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",
-                schema: "Security",
-                table: "AspNetUser",
+                table: "AspNetUsers",
                 column: "NormalizedEmail");
 
             migrationBuilder.CreateIndex(
                 name: "UserNameIndex",
-                schema: "Security",
-                table: "AspNetUser",
+                table: "AspNetUsers",
                 column: "NormalizedUserName",
                 unique: true,
                 filter: "[NormalizedUserName] IS NOT NULL");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AspNetUserClaim_AspNetUserId",
-                schema: "Security",
-                table: "AspNetUserClaim",
-                column: "AspNetUserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AspNetUserLogin_AspNetUserId",
-                schema: "Security",
-                table: "AspNetUserLogin",
-                column: "AspNetUserId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_AspNetUserRole_AspNetRoleId",
-                schema: "Security",
-                table: "AspNetUserRole",
-                column: "AspNetRoleId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Debtors_AddressNumber_AddressPostalCode",
@@ -362,24 +335,19 @@ namespace BlazorInvoice.Infrastructure.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "AspNetRoleClaim",
-                schema: "Security");
+                name: "AspNetRoleClaims");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserClaim",
-                schema: "Security");
+                name: "AspNetUserClaims");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserLogin",
-                schema: "Security");
+                name: "AspNetUserLogins");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserRole",
-                schema: "Security");
+                name: "AspNetUserRoles");
 
             migrationBuilder.DropTable(
-                name: "AspNetUserToken",
-                schema: "Security");
+                name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
                 name: "InvoiceItems");
@@ -388,12 +356,10 @@ namespace BlazorInvoice.Infrastructure.Migrations
                 name: "Settings");
 
             migrationBuilder.DropTable(
-                name: "AspNetRole",
-                schema: "Security");
+                name: "AspNetRoles");
 
             migrationBuilder.DropTable(
-                name: "AspNetUser",
-                schema: "Security");
+                name: "AspNetUsers");
 
             migrationBuilder.DropTable(
                 name: "Invoices");

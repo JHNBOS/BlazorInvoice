@@ -1,16 +1,12 @@
 using Blazored.LocalStorage;
+
 using BlazorInvoice.Client.Areas.Identity;
-using BlazorInvoice.Client.Data;
-using BlazorInvoice.Data;
 using BlazorInvoice.Data.Services;
-using BlazorInvoice.Data.Services.Interfaces;
 using BlazorInvoice.Infrastructure;
-using BlazorInvoice.Infrastructure.Entities;
 using BlazorInvoice.Infrastructure.Repositories;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -21,10 +17,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-using PreRenderComponent;
-
 using System;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace BlazorInvoice.Client
 {
@@ -33,11 +28,6 @@ namespace BlazorInvoice.Client
 		public Startup(IConfiguration configuration)
 		{
 			Configuration = configuration;
-
-			var builder = new ConfigurationBuilder()
-			.AddJsonFile("appsettings.json");
-
-			Configuration = builder.Build();
 		}
 
 		public IConfiguration Configuration { get; }
@@ -47,46 +37,21 @@ namespace BlazorInvoice.Client
 		public void ConfigureServices(IServiceCollection services)
 		{
 			services.AddDbContext<ApplicationDbContext>(options =>
-				options.UseSqlServer(Configuration.GetConnectionString("BlazorInvoiceDatabase"),
-				   b => b.MigrationsAssembly("BlazorInvoice.Infrastructure"))
-				.UseLazyLoadingProxies()
-			);
-
-			//services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
-			//{
-			//	options.SignIn.RequireConfirmedAccount = false;
-			//})
-			//	.AddEntityFrameworkStores<ApplicationDbContext>()
-			//	.AddDefaultTokenProviders();
-
-			services.AddHttpContextAccessor();
-			services.AddControllersWithViews();
+				options.UseSqlServer(
+					Configuration.GetConnectionString("BlazorInvoiceDatabase"),
+					b => b.MigrationsAssembly("BlazorInvoice.Infrastructure")));
+			services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
+					.AddRoles<IdentityRole>()
+					.AddEntityFrameworkStores<ApplicationDbContext>();
 			services.AddRazorPages();
-			services.AddServerSideBlazor();
-			services.AddBlazoredLocalStorage();
-			services.AddHttpClient();
-
-			services.AddScoped<IPreRenderFlag, PreRenderFlag>();
-			//services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
-			services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
-			services.AddScoped<IHostEnvironmentAuthenticationStateProvider>(sp => {
-				// this is safe because 
-				//     the `RevalidatingIdentityAuthenticationStateProvider` extends the `ServerAuthenticationStateProvider`
-				var provider = (ServerAuthenticationStateProvider)sp.GetRequiredService<AuthenticationStateProvider>();
-				return provider;
+			services.AddServerSideBlazor().AddCircuitOptions(options =>
+			{
+				options.DetailedErrors = true;
+			}).AddHubOptions(o =>
+			{
+				o.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10MB
 			});
-
-			services.AddSingleton<WeatherForecastService>();
-
-			services.AddTransient<UserRepository>();
-			services.AddTransient<DebtorRepository>();
-			services.AddTransient<InvoiceRepository>();
-			services.AddTransient<SettingsRepository>();
-
-			services.AddTransient<UserService>();
-			services.AddTransient<DebtorService>();
-			services.AddTransient<InvoiceService>();
-
+			services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
 
 			//services.Configure<IdentityOptions>(options =>
 			//{
@@ -96,28 +61,32 @@ namespace BlazorInvoice.Client
 			//	options.Lockout.AllowedForNewUsers = false;
 			//});
 
-			services.AddServerSideBlazor().AddCircuitOptions(options =>
-			{
-				options.DetailedErrors = true;
-			}).AddHubOptions(o =>
-			{
-				o.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10MB
-			});
+			//services.ConfigureApplicationCookie(options =>
+			//{
+			//	// Cookie settings
+			//	options.Cookie.HttpOnly = false;
+			//	options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
 
-			services.ConfigureApplicationCookie(options =>
-			{
-				// Cookie settings
-				options.Cookie.HttpOnly = false;
-				options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+			//	options.LoginPath = "/Account/Login";
+			//	options.AccessDeniedPath = "/Account/AccessDenied";
+			//	options.SlidingExpiration = true;
+			//});
 
-				options.LoginPath = "/Account/Login";
-				options.AccessDeniedPath = "/Account/AccessDenied";
-				options.SlidingExpiration = true;
-			});
+			services.AddHttpContextAccessor();
+			services.AddControllersWithViews();
+			services.AddBlazoredLocalStorage();
+			services.AddHttpClient();
+
+			services.AddTransient<DebtorRepository>();
+			services.AddTransient<InvoiceRepository>();
+			services.AddTransient<SettingsRepository>();
+
+			services.AddTransient<DebtorService>();
+			services.AddTransient<InvoiceService>();
 		}
 
 		// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-		public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
+		public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IServiceProvider serviceProvider, ILogger<Startup> logger)
 		{
 			if (env.IsDevelopment())
 			{
@@ -130,7 +99,8 @@ namespace BlazorInvoice.Client
 				app.UseHsts();
 			}
 
-			//app.Seed(logger);
+			// Seed user and roles
+			app.Seed(serviceProvider, logger).Wait();
 
 			app.UseExceptionHandler(errorApp =>
 			{
@@ -182,33 +152,33 @@ namespace BlazorInvoice.Client
 
 	public static class DatabaseSeeder
 	{
-		public static void Seed(this IApplicationBuilder app, ILogger logger)
+		public static async Task Seed(this IApplicationBuilder app, IServiceProvider serviceProvider, ILogger logger)
 		{
-			logger.LogInformation("Updating database...");
-			using var serviceScope = app.ApplicationServices.CreateScope();
+			logger.LogInformation("Checking if database needs updating...");
 
-			var context = serviceScope.ServiceProvider.GetService<ApplicationDbContext>();
-			var userManager = serviceScope.ServiceProvider.GetService<UserManager<ApplicationUser>>();
-			var roleManager = serviceScope.ServiceProvider.GetService<RoleManager<ApplicationRole>>();
+			var context = serviceProvider.GetService<ApplicationDbContext>();
+			var userManager = serviceProvider.GetService<UserManager<IdentityUser>>();
+			var roleManager = serviceProvider.GetService<RoleManager<IdentityRole>>();
 
-			SeedRoles(context, roleManager, logger);
-			SeedUsers(context, userManager, logger);
+			await SeedRoles(context, roleManager, logger);
+			await SeedUsers(context, userManager, logger);
 
 			logger.LogInformation("Done updating database...");
 		}
 
-		public static void SeedUsers(ApplicationDbContext context, UserManager<ApplicationUser> userManager, ILogger logger)
+		public static async Task SeedUsers(ApplicationDbContext context, UserManager<IdentityUser> userManager, ILogger logger)
 		{
-			if (userManager.FindByEmailAsync("bosbosjohan@gmail.com").Result == null)
+			var userExists = await userManager.FindByEmailAsync("bosbosjohan@gmail.com");
+			if (userExists == null)
 			{
-				ApplicationUser user = new ApplicationUser()
+				logger.LogInformation("Updating database...");
+
+				var user = new IdentityUser()
 				{
 					Email = "bosbosjohan@gmail.com",
-					UserName = "Admin",
+					UserName = "Johan",
 					NormalizedEmail = ("bosbosjohan@gmail.com").ToUpper(),
-					NormalizedUserName = ("Admin").ToUpper(),
-					FirstName = "Johan",
-					LastName = "Bos",
+					NormalizedUserName = ("Johan").ToUpper(),
 					EmailConfirmed = true,
 					LockoutEnabled = false,
 					AccessFailedCount = 0,
@@ -218,51 +188,51 @@ namespace BlazorInvoice.Client
 					SecurityStamp = new Guid().ToString("D") + DateTime.Now.ToString("ddMMYYYYHHss"),
 				};
 
-				var userResult = userManager.CreateAsync(user, "Welkom@2020").Result;
-				context.SaveChanges();
+				var userResult = await userManager.CreateAsync(user, "Welkom@2020");
+				await context.SaveChangesAsync();
 
 				if (userResult.Succeeded)
 				{
-					userManager.AddToRoleAsync(user, "Administrator").Wait();
-					context.SaveChanges();
+					await userManager.AddToRoleAsync(user, "Administrator");
+					await context.SaveChangesAsync();
 
-					logger.LogInformation($"Set password 'Welkom@2020' for default user 'bosbosjohan@gmail.com' successfully");
+					logger.LogInformation($"Set password 'Welkom@2020' for default user '{user.Email}' successfully");
 				}
 				else
 				{
-					logger.LogError($"Password for the user `{user.Email}` couldn't be set");
+					logger.LogError($"Password for default user '{user.Email}' couldn't be set");
 				}
 			}
 		}
 
-		public static void SeedRoles(ApplicationDbContext context, RoleManager<ApplicationRole> roleManager, ILogger logger)
+		public static async Task SeedRoles(ApplicationDbContext context, RoleManager<IdentityRole> roleManager, ILogger logger)
 		{
 			string[] roles = new string[] { "Debtor", "Administrator", "Employee" };
 
 			foreach (string role in roles)
 			{
-				if (roleManager.FindByNameAsync(role).Result == null)
+				var roleExists = await roleManager.RoleExistsAsync(role);
+				if (!roleExists)
 				{
-					var appRole = new ApplicationRole(role);
-					var appRoleResult = roleManager.CreateAsync(appRole).Result;
+					var appRole = await roleManager.CreateAsync(new IdentityRole(role));
 
-					if (appRoleResult.Succeeded)
+					if (appRole.Succeeded)
 					{
-						logger.LogTrace($"Created role {role} successfully");
+						logger.LogTrace($"Created role for '{role}' successfully");
 					}
 					else
 					{
-						logger.LogError($"Role {role} couldn't be created!");
+						logger.LogError($"Role for '{role}' couldn't be created!");
 					}
 				}
 			}
 
-			context.SaveChanges();
+			await context.SaveChangesAsync();
 		}
 
-		private static string GenerateHash(ApplicationUser user)
+		private static string GenerateHash(IdentityUser user)
 		{
-			var passHash = new PasswordHasher<ApplicationUser>();
+			var passHash = new PasswordHasher<IdentityUser>();
 			return passHash.HashPassword(user, "welkom2020");
 		}
 	}
