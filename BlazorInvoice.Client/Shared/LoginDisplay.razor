@@ -1,12 +1,36 @@
-﻿<AuthorizeView>
-    <Authorized>
-        <a href="Identity/Account/Manage">Hello, @context.User.Identity.Name!</a>
-        <form method="post" action="Identity/Account/LogOut">
-            <button type="submit" class="nav-link btn btn-link">Log out</button>
-        </form>
-    </Authorized>
-    <NotAuthorized>
-        <a href="Identity/Account/Register">Register</a>
-        <a href="Identity/Account/Login">Log in</a>
-    </NotAuthorized>
+﻿@using Microsoft.AspNetCore.Identity
+@using BlazorInvoice.Infrastructure.Entities
+
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<AuthorizeView>
+	<Authorized>
+		<div class="d-flex justify-content-center align-items-center">
+			<span class="user-logo">@CurrentUser?.Initials</span>
+			<a href="Identity/Account/Manage" class="ml-2">
+				@CurrentUser?.FullName
+			</a>
+		</div>
+		
+		<form method="post" action="Identity/Account/LogOut">
+			<button type="submit" class="nav-link btn btn-link">Log out</button>
+		</form>
+	</Authorized>
+	<NotAuthorized>
+		<a href="Identity/Account/Register">Register</a>
+		<a href="Identity/Account/Login">Log in</a>
+	</NotAuthorized>
 </AuthorizeView>
+
+@code {
+
+	private AuthenticationState AuthenticationState { get; set; }
+	private ApplicationUser CurrentUser { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		AuthenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		CurrentUser = await UserManager.GetUserAsync(AuthenticationState.User);
+	}
+}

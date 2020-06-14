@@ -1,0 +1,15 @@
+﻿@import "vars";
+
+.user-logo {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: $navbar-user-logo-height;
+	width: $navbar-user-logo-width;
+	margin: 0;
+	padding: 0;
+	background-color: $navbar-user-logo-background;
+	color: $navbar-user-logo-color;
+	border-radius: $navbar-user-logo-border-radius;
+	text-align: center;
+}

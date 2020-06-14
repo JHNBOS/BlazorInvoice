@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BlazorInvoice.Infrastructure
 {
-	public class ApplicationDbContext : IdentityDbContext
+	public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 	{
 		public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
 			: base(options)
@@ -25,6 +25,9 @@ namespace BlazorInvoice.Infrastructure
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
+
+			// Ignore properties
+			modelBuilder.Entity<ApplicationUser>().Ignore(e => e.FullName).Ignore(e => e.Initials);
 
 			// Unique properties
 			modelBuilder.Entity<Debtor>().HasIndex(u => u.Email).IsUnique();

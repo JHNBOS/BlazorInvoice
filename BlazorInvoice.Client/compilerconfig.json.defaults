@@ -1,0 +1,35 @@
+{
+  "compilers": {
+    "less": {
+      "autoPrefix": "",
+      "cssComb": "none",
+      "ieCompat": true,
+      "strictMath": false,
+      "strictUnits": false,
+      "relativeUrls": true,
+      "rootPath": "",
+      "sourceMapRoot": "",
+      "sourceMapBasePath": "",
+      "sourceMap": false
+    },
+    "sass": {
+      "autoPrefix": "",
+      "includePath": "",
+      "indentType": "space",
+      "indentWidth": 2,
+      "outputStyle": "nested",
+      "Precision": 5,
+      "relativeUrls": true,
+      "sourceMapRoot": "",
+      "lineFeed": "",
+      "sourceMap": false
+    }
+  },
+  "minifiers": {
+    "css": {
+      "enabled": true,
+      "termSemicolons": true,
+      "gzip": false
+    }
+  }
+}

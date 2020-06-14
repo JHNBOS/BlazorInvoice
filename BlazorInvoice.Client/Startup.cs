@@ -3,6 +3,7 @@ using Blazored.LocalStorage;
 using BlazorInvoice.Client.Areas.Identity;
 using BlazorInvoice.Data.Services;
 using BlazorInvoice.Infrastructure;
+using BlazorInvoice.Infrastructure.Entities;
 using BlazorInvoice.Infrastructure.Repositories;
 
 using Microsoft.AspNetCore.Builder;
@@ -40,9 +41,10 @@ namespace BlazorInvoice.Client
 				options.UseSqlServer(
 					Configuration.GetConnectionString("BlazorInvoiceDatabase"),
 					b => b.MigrationsAssembly("BlazorInvoice.Infrastructure")));
-			services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
+			services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
 					.AddRoles<IdentityRole>()
-					.AddEntityFrameworkStores<ApplicationDbContext>();
+					.AddEntityFrameworkStores<ApplicationDbContext>()
+					.AddDefaultTokenProviders();
 			services.AddRazorPages();
 			services.AddServerSideBlazor().AddCircuitOptions(options =>
 			{
@@ -157,28 +159,34 @@ namespace BlazorInvoice.Client
 			logger.LogInformation("Checking if database needs updating...");
 
 			var context = serviceProvider.GetService<ApplicationDbContext>();
-			var userManager = serviceProvider.GetService<UserManager<IdentityUser>>();
+			var userManager = serviceProvider.GetService<UserManager<ApplicationUser>>();
 			var roleManager = serviceProvider.GetService<RoleManager<IdentityRole>>();
 
-			await SeedRoles(context, roleManager, logger);
-			await SeedUsers(context, userManager, logger);
+			var userExists = await userManager.FindByEmailAsync("bosbosjohan@gmail.com");
+			if (userExists == null)
+			{
+				await SeedRoles(context, roleManager, logger);
+				await SeedUsers(context, userManager, logger);
+			}
 
 			logger.LogInformation("Done updating database...");
 		}
 
-		public static async Task SeedUsers(ApplicationDbContext context, UserManager<IdentityUser> userManager, ILogger logger)
+		public static async Task SeedUsers(ApplicationDbContext context, UserManager<ApplicationUser> userManager, ILogger logger)
 		{
 			var userExists = await userManager.FindByEmailAsync("bosbosjohan@gmail.com");
 			if (userExists == null)
 			{
 				logger.LogInformation("Updating database...");
 
-				var user = new IdentityUser()
+				var user = new ApplicationUser()
 				{
 					Email = "bosbosjohan@gmail.com",
-					UserName = "Johan",
+					UserName = "JohanBos",
+					FirstName = "Johan",
+					LastName = "Bos",
 					NormalizedEmail = ("bosbosjohan@gmail.com").ToUpper(),
-					NormalizedUserName = ("Johan").ToUpper(),
+					NormalizedUserName = ("JohanBos").ToUpper(),
 					EmailConfirmed = true,
 					LockoutEnabled = false,
 					AccessFailedCount = 0,
@@ -228,12 +236,6 @@ namespace BlazorInvoice.Client
 			}
 
 			await context.SaveChangesAsync();
-		}
-
-		private static string GenerateHash(IdentityUser user)
-		{
-			var passHash = new PasswordHasher<IdentityUser>();
-			return passHash.HashPassword(user, "welkom2020");
 		}
 	}
 }
